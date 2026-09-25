@@ -4,7 +4,7 @@ IntentLock is a local payment recovery console and customer checkout simulator. 
 
 ## Run locally
 
-Requirements: Node.js 20.9 or newer.
+Requirements: Node.js 20.9 or newer. PostgreSQL is optional; without `DATABASE_URL`, the simulator uses its local JSON store.
 
 ```bash
 npm install
@@ -12,6 +12,18 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The local simulator persists intents, attempts, linked provider orders, policy settings, and event history in `.intentlock/store.json`. Use **Run scenario** to generate provider-like events, **Create payment** to open the shopper checkout, and select a payment row to inspect its state, evidence, and available action. Payment data is synthetic and is never sent to a payment provider.
+
+### Use PostgreSQL
+
+The app can use PostgreSQL for shared, transaction-locked state. Start the included local database with Docker Compose, then copy `.env.example` to `.env.local` and start Next.js:
+
+```bash
+docker compose up -d db
+Copy-Item .env.example .env.local
+npm run dev
+```
+
+The schema and initial state are created automatically on the first API request. PostgreSQL stores the simulator's state as a single JSONB aggregate row and serializes updates with a row lock. Leave `DATABASE_URL` unset to use `.intentlock/store.json` instead. The health indicator in the console reports which store is active.
 
 ## What works in the local simulator
 
@@ -30,12 +42,12 @@ Open [http://localhost:3000](http://localhost:3000). The local simulator persist
 
 ## Product boundary
 
-This local build uses an atomic local JSON store and a deterministic provider simulator. The store serializes writes for a single local process; it is not a multi-process or production database. Razorpay credentials, live payments, signed webhook verification, multi-user access, PostgreSQL, Redis workers, email or SMS recovery, and real merchant revenue measurement are not connected. Scenario evaluation exercises the same deterministic state-machine helpers as the local API; baseline comparisons are modeled safety cases, not empirical rates or measured revenue lift. There is no trained AI model or real merchant outcome data. The UI follows a familiar payments-operations dashboard layout while retaining IntentLock branding.
+This local build uses either an atomic local JSON store or an optional PostgreSQL JSONB aggregate, plus a deterministic provider simulator. The JSON store serializes writes for a single local process; PostgreSQL serializes simulator mutations across app processes using a transaction and row lock. This is not a normalized production payment schema. Razorpay credentials, live payments, signed webhook verification, multi-user access, Redis workers, email or SMS recovery, and real merchant revenue measurement are not connected. Scenario evaluation exercises the same deterministic state-machine helpers as the local API; baseline comparisons are modeled safety cases, not empirical rates or measured revenue lift. There is no trained AI model or real merchant outcome data. The UI follows a familiar payments-operations dashboard layout while retaining IntentLock branding.
 
 ## Delivery phases
 
 1. Problem and product boundaries — captured in the supplied recovery-agent brief.
-2. Local identity/state simulator — implemented with server-side idempotent intent creation, bounded policy gate, payment event deduplication, reconciliation-style transitions, and durable local event history. PostgreSQL and signed webhooks remain for the next backend hardening pass.
+2. Local identity/state simulator — implemented with server-side idempotent intent creation, bounded policy gate, payment event deduplication, reconciliation-style transitions, and durable event history. Local JSON and optional PostgreSQL persistence are supported. Signed webhook verification remains out of scope for the provider simulator.
 3. Merchant and shopper experience — implemented as the responsive operations console, intent detail, and checkout.
 4. Scenario and measurement surfaces — implemented as deterministic state-machine checks and clearly labeled synthetic local counts; no real-world measurement is claimed.
 5. Recovery recommendations — implemented as a transparent deterministic priority score and bounded next-step recommendation. A learned ranking model remains deferred until there is appropriate labeled merchant outcome data.

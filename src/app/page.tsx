@@ -32,6 +32,7 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
 export default function Home() {
   const [intents, setIntents] = useState(initialIntents);
   const [storeReady, setStoreReady] = useState(false);
+  const [storageHealth, setStorageHealth] = useState("Checking storage");
   const [retryLimit, setRetryLimit] = useState(1);
   const [waitMinutes, setWaitMinutes] = useState(5);
   const [policyVersion, setPolicyVersion] = useState(1);
@@ -51,6 +52,13 @@ export default function Home() {
   const notify = (s: string) => { setToast(s); window.setTimeout(() => setToast(""), 3200); };
   const customerIntentId = customerView?.id;
   const customerIsTerminal = !customerView || ["Paid", "Review required", "Failed"].includes(customerView.status);
+
+  useEffect(() => {
+    void fetch("/api/health", { cache: "no-store" }).then(async response => {
+      const status = await response.json();
+      setStorageHealth(status.status === "ok" ? (status.storage === "postgresql" ? "PostgreSQL operational" : "Local storage operational") : "Storage unavailable");
+    }).catch(() => setStorageHealth("Storage unavailable"));
+  }, []);
 
   useEffect(() => {
     void fetch("/api/intents", { cache: "no-store" }).then(async response => {
@@ -155,7 +163,7 @@ export default function Home() {
       <div className="brand"><span className="brandMark"><i/><i/><i/></span><span className="brandWord">intent<span>lock</span></span><span className="sandbox">TEST</span></div>
       <button className="storePicker"><span className="storeIcon">M</span><span className="storeText"><b>Meadow &amp; Moss</b><small>meadow-moss.test</small></span><span className="storeChevron">⌄</span></button>
       <div className="sideNav">{menuItems.map(group => <div key={group.group} className="navGroup"><div className="navCaption">{group.group}</div>{group.items.map(item => <button key={item.label} onClick={() => { const next=item.label === "Recovery" ? "Recovery" : item.label; setSection(next); if(item.label==="Recovery") setFilter("Needs attention"); else if(item.label==="Overview"||item.label==="Payments") setFilter("All intents"); }} className={`navItem ${section === item.label || (section === "Overview" && item.label === "Overview") ? "active" : ""}`}><Icon name={item.icon}/><span>{item.label}</span>{item.label === "Recovery" && <span className="navCount">{metrics.pending + metrics.eligible + metrics.review}</span>}</button>)}</div>)}</div>
-      <div className="sideBottom"><div className="livePill"><span/> Simulator operational</div><button className="navItem"><span className="helpIcon">?</span><span>Help &amp; support</span></button><div className="profile"><div className="avatar">AM</div><span className="profileText"><b>Arjun Mehta</b><small>Owner account</small></span><Icon name="dots"/></div></div>
+      <div className="sideBottom"><div className="livePill"><span/> {storageHealth}</div><button className="navItem"><span className="helpIcon">?</span><span>Help &amp; support</span></button><div className="profile"><div className="avatar">AM</div><span className="profileText"><b>Arjun Mehta</b><small>Owner account</small></span><Icon name="dots"/></div></div>
     </aside>
 
     <section className="workspace">
@@ -170,7 +178,7 @@ export default function Home() {
           <section className="panel tablePanel"><div className="panelHead tableHeader"><div><h2>{section==="Recovery"?"Recovery queue":"Recent payments"}</h2><p>{section==="Recovery"?"Unresolved payments, retry-eligible failures, and cases needing review":"A live view of your latest payment attempts"}</p></div><button className="textLink" onClick={() => setSection("Payments")}>View all payments <Icon name="arrow" size={15}/></button></div><div className="tableTools"><div className="tabs">{["All intents", "Needs attention", "Paid", "Failed"].map(x=><button key={x} className={filter===x?"tab activeTab":"tab"} onClick={()=>setFilter(x)}>{x}{x==="Needs attention"&&<span>{metrics.pending+metrics.eligible+metrics.review}</span>}</button>)}</div><div className="tableActions"><label className="search"><Icon name="search" size={16}/><input placeholder="Search payments" value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></label><button className="filterButton" aria-expanded={showFilters} onClick={()=>setShowFilters(value=>!value)}><Icon name="sliders" size={15}/> Filters</button>{showFilters&&<select className="methodFilter" aria-label="Filter by payment method" value={methodFilter} onChange={e=>setMethodFilter(e.target.value)}><option>All methods</option><option>UPI</option><option>Cards</option><option>Netbanking</option></select>}<button className="filterButton export" onClick={()=>{const csv=["purchase_ref,customer,amount,status,provider_order",...filtered.map(x=>`${x.reference},${x.customer},${x.amount},${x.status},${x.order}`)].join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="intentlock-payments.csv";a.click();notify("Payment report downloaded.");}}><Icon name="download" size={15}/></button></div></div>
             <div className="tableWrap"><table><thead><tr><th>PAYMENT / ORDER</th><th>CUSTOMER</th><th>AMOUNT</th><th>METHOD</th><th>STATUS</th><th>UPDATED</th><th></th></tr></thead><tbody>{filtered.map(x=><tr key={x.id} onClick={()=>setSelected(x)} className="clickRow"><td><div className="cellId"><span className={`methodIcon ${x.method.startsWith("Card")?"mc":""}`}>{x.method.startsWith("Card")?"▭":x.method==="UPI"?"↗":"⌂"}</span><div><b>{x.id}</b><small>{x.order}{x.providerOrders.length>1?` · +${x.providerOrders.length-1} linked`:""}</small></div></div></td><td><div className="cellName"><b>{x.customer}</b><small>{x.email}</small></div></td><td className="amountCell">{money(x.amount)}</td><td className="methodCell">{x.method}</td><td><StatusPill status={x.status}/></td><td className="timeCell">{x.time}</td><td><button className="rowMore" onClick={e=>{e.stopPropagation();setSelected(x);}}><Icon name="dots"/></button></td></tr>)}</tbody></table>{filtered.length===0&&<div className="empty">No payments match your search.</div>}</div><div className="tableFoot"><span>Showing <b>{filtered.length?1:0}–{filtered.length}</b> of <b>{filtered.length}</b> payments</span><div><button disabled>← Previous</button><button disabled>Next →</button></div></div>
           </section>
-          <footer className="footer"><span>© 2026 IntentLock</span><span><i/> All systems operational</span><a href="#docs">Documentation ↗</a></footer>
+          <footer className="footer"><span>© 2026 IntentLock</span><span><i/> {storageHealth}</span><a href="#docs">Documentation ↗</a></footer>
         </> : <SectionPlaceholder section={section} onReturn={()=>setSection("Overview")} intents={intents} retryLimit={retryLimit} waitMinutes={waitMinutes} policyVersion={policyVersion} savePolicy={savePolicy} />}
       </div>
     </section>
