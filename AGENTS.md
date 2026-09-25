@@ -7,3 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# IntentLock Project Handoff
+
+Before modifying this repository, read [`skills.md`](./skills.md) and [`README.md`](./README.md). `skills.md` contains the product-specific continuation plan, safety invariants, current implementation status, verification workflow, and next recommended tasks. Preserve the Next.js-managed block above.
