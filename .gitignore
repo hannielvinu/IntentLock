@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.intentlock/
 
 # next.js
 /.next/
